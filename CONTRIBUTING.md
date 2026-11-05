@@ -1,0 +1,73 @@
+# Check an SDK change
+
+Use this guide to test a change before opening a pull request. You need Node.js 24, npm 11.10 or later, and Git.
+
+## Install and test
+
+From the repo root, install the locked dependencies:
+
+```sh
+npm ci
+```
+
+Dependency updates wait until a release is at least 24 hours old.
+
+Make your change and add tests for it. If it needs changes to generated endpoint files, ask a maintainer. The schema and generator are internal to Notion. See [the source file rules](AGENTS.md#source-files).
+
+Run the local checks:
+
+```sh
+npm run build
+npm run lint
+npm test
+```
+
+## Check SDK compatibility
+
+Check that the exports, method inputs, and response types available from `@notionhq/client` still work.
+
+Fetch the latest base branch and create a separate checkout in a new temporary directory:
+
+```sh
+git fetch origin main
+compat_dir=$(mktemp -d)
+git worktree add --detach "$compat_dir/baseline" origin/main
+npm run check:compatibility -- "$compat_dir/baseline/src/index.ts"
+```
+
+Keep the baseline outside this repo so lint and tests do not scan it. For a pull request that targets another branch, use that branch instead of `main`.
+
+If the check reports a removed or incompatible export, restore the old contract and add a regression test. If the change is intentional, ask a reviewer to add the `contract-change` label, and cut the next release as a minor release. See [the compatibility rules](AGENTS.md#compatibility-rules).
+
+Remove the temporary checkout when done:
+
+```sh
+git worktree remove "$compat_dir/baseline"
+rmdir "$compat_dir"
+```
+
+## Check documentation links
+
+[Lychee](https://github.com/lycheeverse/lychee#installation) checks links and heading anchors in tracked Markdown files. To install it on macOS, run:
+
+```sh
+brew install lychee
+```
+
+Once installed, run the check from the repository root:
+
+```sh
+npm run check-links
+```
+
+CI uses offline mode to check local files and heading anchors without contacting external websites. To run that mode locally:
+
+```sh
+npm run check-links -- --offline
+```
+
+## Open the pull request
+
+Describe the change and record the checks you ran. Wait for CI to pass on the final commit before merging.
+
+To release a new version, follow [Publish a release](PUBLISHING.md).
